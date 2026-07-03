@@ -17,16 +17,22 @@ location_dict = {
 }
 
 # ------------------------------------------------
-# 2. 사이드바: 모드 선택 및 메뉴 구성
+# 2. 사이드바: 모드 선택 및 보안 로직
 # ------------------------------------------------
 st.sidebar.title("🏡 마을잇다 플랫폼")
 user_mode = st.sidebar.radio("접속 타입을 선택하세요:", ("마을 관리자", "운영자(관리자)"))
 st.sidebar.divider()
 
+menu = None
 if user_mode == "마을 관리자":
     menu = st.sidebar.radio("메뉴:", ("1. 생필품 수요 신청",))
 else:
-    menu = st.sidebar.radio("메뉴:", ("2. 누적 데이터 분석", "3. 취약지역 현황 지도"))
+    # 운영자 모드 진입 시 비밀번호 확인
+    password = st.sidebar.text_input("관리자 비밀번호를 입력하세요:", type="password")
+    if password == "1234":
+        menu = st.sidebar.radio("메뉴:", ("2. 누적 데이터 분석", "3. 취약지역 현황 지도"))
+    else:
+        st.sidebar.warning("비밀번호를 입력하면 메뉴가 나타납니다. (힌트: 1234)")
 
 # ------------------------------------------------
 # 3. 모드별/메뉴별 화면 로직
@@ -49,7 +55,6 @@ if menu == "1. 생필품 수요 신청":
         st.success(f"✅ {village}에서 '{item}' {amount}개가 성공적으로 신청되었습니다!")
 
 # [운영자] 누적 데이터 분석
-# [운영자] 누적 데이터 분석 섹션을 아래와 같이 수정
 elif menu == "2. 누적 데이터 분석":
     st.header("📊 운영자용 통합 대시보드")
     df = st.session_state['order_data']
@@ -57,19 +62,24 @@ elif menu == "2. 누적 데이터 분석":
     if df.empty:
         st.info("아직 신청된 데이터가 없습니다.")
     else:
-        # 1. 핵심 지표 카드 추가
+        # 핵심 지표 카드
         col1, col2, col3 = st.columns(3)
-        total_orders = len(df)
-        total_items = df['수량'].sum()
-        unique_villages = df['마을명'].nunique()
-        
-        col1.metric("총 신청 건수", f"{total_orders}건")
-        col2.metric("총 물품 수량", f"{total_items}개")
-        col3.metric("참여 마을 수", f"{unique_villages}개")
+        col1.metric("총 신청 건수", f"{len(df)}건")
+        col2.metric("총 물품 수량", f"{df['수량'].sum()}개")
+        col3.metric("참여 마을 수", f"{df['마을명'].nunique()}개")
         
         st.divider()
 
-        # 2. 기존 탭 차트 (기존 내용 유지)
+        # 데이터 다운로드 버튼 (CSV)
+        csv = df.to_csv(index=False).encode('utf-8-sig') # 한글 깨짐 방지
+        st.download_button(
+            label="📥 분석 데이터 CSV 다운로드",
+            data=csv,
+            file_name="마을잇다_데이터.csv",
+            mime="text/csv"
+        )
+
+        # 탭 차트
         tab1, tab2 = st.tabs(["마을별 신청 현황", "품목별 수요 순위"])
         with tab1:
             st.bar_chart(df.groupby(["마을명", "품목"])["수량"].sum().unstack().fillna(0))
@@ -80,7 +90,6 @@ elif menu == "2. 누적 데이터 분석":
 elif menu == "3. 취약지역 현황 지도":
     st.header("🗺️ 취약지역 실시간 현황")
     df = st.session_state['order_data']
-    
     if df.empty:
         st.info("데이터가 없습니다.")
     else:
