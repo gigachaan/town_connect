@@ -49,13 +49,27 @@ if menu == "1. 생필품 수요 신청":
         st.success(f"✅ {village}에서 '{item}' {amount}개가 성공적으로 신청되었습니다!")
 
 # [운영자] 누적 데이터 분석
+# [운영자] 누적 데이터 분석 섹션을 아래와 같이 수정
 elif menu == "2. 누적 데이터 분석":
-    st.header("📊 누적 데이터 분석 (운영자 대시보드)")
+    st.header("📊 운영자용 통합 대시보드")
     df = st.session_state['order_data']
     
     if df.empty:
         st.info("아직 신청된 데이터가 없습니다.")
     else:
+        # 1. 핵심 지표 카드 추가
+        col1, col2, col3 = st.columns(3)
+        total_orders = len(df)
+        total_items = df['수량'].sum()
+        unique_villages = df['마을명'].nunique()
+        
+        col1.metric("총 신청 건수", f"{total_orders}건")
+        col2.metric("총 물품 수량", f"{total_items}개")
+        col3.metric("참여 마을 수", f"{unique_villages}개")
+        
+        st.divider()
+
+        # 2. 기존 탭 차트 (기존 내용 유지)
         tab1, tab2 = st.tabs(["마을별 신청 현황", "품목별 수요 순위"])
         with tab1:
             st.bar_chart(df.groupby(["마을명", "품목"])["수량"].sum().unstack().fillna(0))
