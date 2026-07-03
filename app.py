@@ -90,25 +90,27 @@ elif menu == "📊 통합 관제 보드":
         with c2:
             st.subheader("실시간 데이터베이스")
             st.dataframe(df[['마을명', '품목', '수량', '상태']], use_container_width=True)
-            st.download_button("📥 백업용 CSV 다운로드", df.to_csv(index=False), "data.csv", use_container_width=True)
+            st.download_button("📥 백업용 CSV 다운로드", df.to_csv(index=False), "data.csv", use_container_width=True , encoding='utf-8-sig')
 
 elif menu == "🗺️ 3D 취약 지도":
     st.header("🗺️ 3D 실시간 취약지역 관제")
-    df = st.session_state['order_data']
+    df = st.session_state['order_data'].copy() # 원본 훼손 방지를 위해 카피
     if not df.empty:
-        # [깐지 포인트 5] 지도의 높이(elevation)를 수량에 비례하게 설정하여 3D 효과 극대화
+        # [수정된 핵심 포인트] 지도에 던지기 전에 파이썬에서 미리 색상을 배열로 계산해서 'color'라는 열에 저장합니다.
+        df['color'] = df['상태'].apply(lambda x: [255, 50, 50, 200] if x == "🚨위험" else [50, 150, 255, 200])
+        
         layer = pdk.Layer(
             "ColumnLayer",
             df,
             get_position='[경도, 위도]',
-            get_elevation='수량 * 100', # 수량이 많을수록 기둥이 높아짐
+            get_elevation='수량 * 100',
             elevation_scale=1,
             radius=1500,
-            get_fill_color='[255, 50, 50, 200] if 상태 == "🚨위험" else [50, 150, 255, 200]',
+            get_fill_color='color', # 복잡한 수식 대신 방금 만든 color 열을 그대로 읽어오게 합니다.
             pickable=True,
             auto_highlight=True,
         )
-        view_state = pdk.ViewState(latitude=37.2, longitude=127.5, zoom=6.5, pitch=45) # pitch로 기울기 줘서 3D 강조
+        view_state = pdk.ViewState(latitude=37.2, longitude=127.5, zoom=6.5, pitch=45)
         st.pydeck_chart(pdk.Deck(
             layers=[layer], initial_view_state=view_state,
             tooltip={"text": "{마을명}\n품목: {품목}\n요청수량: {수량}\n상태: {상태}"}
